@@ -1,0 +1,349 @@
+openapi: 3.0.0
+info:
+  title: Inventory Service API
+  description: Microservice for managing inventory and purchases
+  version: 1.0.0
+  contact:
+    name: API Support
+servers:
+  - url: http://localhost:3002
+    description: Development server
+  - url: http://inventory-service:3002
+    description: Docker internal network
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for service authentication
+  
+  schemas:
+    Inventory:
+      type: object
+      properties:
+        type:
+          type: string
+          example: inventory
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        attributes:
+          type: object
+          properties:
+            product_id:
+              type: string
+              example: 550e8400-e29b-41d4-a716-446655440000
+            quantity:
+              type: integer
+              minimum: 0
+              example: 100
+            reserved_quantity:
+              type: integer
+              minimum: 0
+              example: 5
+            available_quantity:
+              type: integer
+              minimum: 0
+              example: 95
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    Purchase:
+      type: object
+      properties:
+        type:
+          type: string
+          example: purchases
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        attributes:
+          type: object
+          properties:
+            product_id:
+              type: string
+              example: 550e8400-e29b-41d4-a716-446655440000
+            quantity:
+              type: integer
+              minimum: 1
+              example: 2
+            total_price:
+              type: number
+              format: float
+              example: 1999.98
+            purchase_date:
+              type: string
+              format: date-time
+            status:
+              type: string
+              enum: [completed, failed, pending]
+              example: completed
+
+    CreatePurchase:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+
+    UpdateInventory:
+      type: object
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 0
+          example: 100
+
+    Error:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "400"
+              title:
+                type: string
+                example: Validation Error
+              detail:
+                type: string
+                example: Quantity is required
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check service health and connectivity
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  service:
+                    type: string
+                    example: inventory-service
+                  version:
+                    type: string
+                    example: 1.0.0
+                  database:
+                    type: string
+                    example: connected
+                  products_service:
+                    type: string
+                    example: connected
+        '503':
+          description: Service is unhealthy
+
+  /api/inventory/{productId}:
+    get:
+      summary: Get inventory for product
+      description: Retrieve inventory information for a specific product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Inventory'
+                  included:
+                    type: array
+                    items:
+                      type: object
+                      description: Related product information
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update inventory quantity
+      description: Update the quantity for a specific product in inventory
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInventory'
+      responses:
+        '200':
+          description: Inventory updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Inventory'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/purchase:
+    post:
+      summary: Process a purchase
+      description: Process a purchase request, checking inventory and updating quantities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchase'
+      responses:
+        '201':
+          description: Purchase processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Purchase'
+                  included:
+                    type: array
+                    items:
+                      type: object
+                      description: Related product and inventory information
+                  meta:
+                    type: object
+                    properties:
+                      unit_price:
+                        type: number
+                        format: float
+                      total_price:
+                        type: number
+                        format: float
+                      remaining_inventory:
+                        type: integer
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Insufficient inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/purchase/{id}:
+    get:
+      summary: Get purchase by ID
+      description: Retrieve a specific purchase record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Purchase ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Purchase'
+        '404':
+          description: Purchase not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

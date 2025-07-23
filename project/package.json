@@ -1,0 +1,25 @@
+{
+  "name": "microservices-products-inventory",
+  "version": "1.0.0",
+  "description": "Microservices architecture with Products and Inventory services",
+  "private": true,
+  "scripts": {
+    "install:all": "npm run install:products && npm run install:inventory && npm run install:shared",
+    "install:products": "cd services/products && npm install",
+    "install:inventory": "cd services/inventory && npm install", 
+    "install:shared": "cd shared && npm install",
+    "dev": "docker-compose up --build",
+    "dev:products": "cd services/products && npm run dev",
+    "dev:inventory": "cd services/inventory && npm run dev",
+    "test": "npm run test:products && npm run test:inventory",
+    "test:products": "cd services/products && npm test",
+    "test:inventory": "cd services/inventory && npm test",
+    "test:integration": "cd integration-tests && npm test",
+    "build": "docker-compose build",
+    "start": "docker-compose up",
+    "stop": "docker-compose down"
+  },
+  "keywords": ["microservices", "products", "inventory", "jsonapi", "docker"],
+  "author": "Developer",
+  "license": "MIT"
+}

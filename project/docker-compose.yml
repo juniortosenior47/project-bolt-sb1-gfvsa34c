@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  products-service:
+    build:
+      context: ./services/products
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_PATH=/app/data/products.db
+      - API_KEY=products-service-key-2024
+      - INVENTORY_SERVICE_URL=http://inventory-service:3002
+      - INVENTORY_API_KEY=inventory-service-key-2024
+    volumes:
+      - products-data:/app/data
+      - ./services/products:/app
+      - /app/node_modules
+    depends_on:
+      - inventory-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - microservices-network
+
+  inventory-service:
+    build:
+      context: ./services/inventory
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DB_PATH=/app/data/inventory.db
+      - API_KEY=inventory-service-key-2024
+      - PRODUCTS_SERVICE_URL=http://products-service:3001
+      - PRODUCTS_API_KEY=products-service-key-2024
+    volumes:
+      - inventory-data:/app/data
+      - ./services/inventory:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - microservices-network
+
+volumes:
+  products-data:
+  inventory-data:
+
+networks:
+  microservices-network:
+    driver: bridge
